@@ -1,0 +1,475 @@
+#+AUTHOR: Shaowei Wang
+#+TITLE: Shaowei's Emacs Configuration
+#+PROPERTY: header-args:emacs-lisp :tangle ./config.el :mkdirp yes
+
+* Emacs initialization
+
+** Better Emacs defaults
+
+*** DO NOT LET emacs littering backup files all over the place.
+
+People really don’t like Emacs’ littering.
+
+#+begin_src emacs-lisp
+  (setq make-backup-files nil)
+  (defvar user-emacs-backup-directory
+    (expand-file-name ".backup" user-emacs-directory))
+  (defvar user-emacs-autosave-directory
+    (expand-file-name ".autosave" user-emacs-directory))
+  (unless (file-directory-p user-emacs-backup-directory)
+    (make-directory user-emacs-backup-directory t))
+  (unless (file-directory-p user-emacs-autosave-directory)
+    (make-directory user-emacs-autosave-directory t))
+  (setq auto-save-file-name-transforms `((".*" ,user-emacs-autosave-directory t)))
+  (setq backup-directory-alist `(("." . ,user-emacs-backup-directory)))
+
+#+end_src
+
+*** Require final newline at end of file
+
+Not always what you want but most of the time, and, should
+definitively have been the default especially on bash. Things can get
+weird when your files don’t end in a newline.
+
+#+begin_src emacs-lisp
+  (setq require-final-newline t)
+#+end_src
+
+*** Show Warning buffer when error
+
+#+begin_src emacs-lisp
+  (setq warning-minimum-level :error)
+#+end_src
+
+*** Frame Scroll and Resize
+
+Without this, Emacs will try to resize itself to a specific column
+size. I can’t believe nil is the default
+
+#+begin_src emacs-lisp
+  (when window-system
+    (setq frame-inhibit-implied-resize t)
+    (setq pixel-scroll-precision-mode t)
+    (setq pixel-scroll-precision-use-momentum nil))
+#+end_src
+
+*** Set PATH from login shell
+
+#+begin_src emacs-lisp
+(defun set-exec-path-from-shell-PATH ()
+  "Set up Emacs' `exec-path' and PATH environment variable to match
+that used by the user's shell.
+
+This is particularly useful under Mac OS X and macOS, where GUI
+apps are not started from a shell."
+  (interactive)
+  (let ((path-from-shell (shell-command-to-string
+                      "$SHELL --login -c 'echo -n $PATH'"
+                            )))
+    (setenv "PATH" path-from-shell)
+    (setq exec-path (split-string path-from-shell path-separator))))
+
+(set-exec-path-from-shell-PATH)
+#+end_src
+
+#+begin_src emacs-lisp
+  (use-package emacs
+    :ensure nil
+    :bind
+    (("M-o" . other-window)
+     ("C-x C-b" . ibuffer))
+    :custom
+    (cursor-type 'box )                 ; cursor type
+    (ad-redefinition-action 'accept)    ; Silence warnings for redefinition
+    (cursor-in-non-selected-windows nil)               ; Hide the cursor in inactive windows
+    (display-time-default-load-average nil)            ; Don't display load average
+    (fill-column 80)                                   ; Set width for automatic line breaks
+    (help-window-select t)                             ; Focus new help windows when opened
+    (indent-tabs-mode nil)                             ; Prefer spaces over tabs
+    (inhibit-startup-screen t)                         ; Disable start-up screen
+    (initial-scratch-message "")                       ; Empty the initial *scratch* buffer
+    (kill-ring-max 256)                                ; Maximum length of kill ring
+    (load-prefer-newer t)                              ; Prefer the newest version of a file
+    (mark-ring-max 256)                                ; Maximum length of mark ring
+    (read-process-output-max (* 10 1024 1024))         ; Increase the amount of data reads from the process
+    (scroll-conservatively most-positive-fixnum)       ; Always scroll by one line
+    (select-enable-clipboard t)                        ; Merge system's and Emacs' clipboard
+    (tab-width 4)                                      ; Set width for tabs
+    (use-package-always-ensure t)                      ; Avoid the :ensure keyword for each package
+    (user-full-name "Shaowei Wang")                    ; Set the full name of the current user
+    (user-mail-address "shaowei.wang@qq.com")          ; Set the email address of the current user
+    (vc-follow-symlinks t)                             ; Always follow the symlinks
+    (view-read-only t)                                 ; Always open read-only buffers in view-mode
+    (visible-bell t)                                   ; Just need it
+    (split-width-threshold nil)                        ; vertical splits are preferred
+    (split-height-threshold nil)
+    (create-lockfiles nil)                             ; No backup files
+    (make-backup-files nil)                            ; No backup files
+    (backup-inhibited t)                               ; No backup files
+    (ring-bell-function 'ignore)
+    (recentf-max-saved-items 300)                     ; default is 20
+    (column-number-mode 1)                            ; Show the column number
+    (fset 'yes-or-no-p 'y-or-n-p)                     ; Replace yes/no prompts with y/n
+    (set-default-coding-systems 'utf-8)               ; Default to utf-8 encoding
+    (show-paren-mode 1)                               ; Show the parent
+    (resize-mini-windows 'grow-only)
+    (scroll-conservatively 8)
+    (scroll-margin 5)
+    (xref-search-program 'ripgrep)
+    (grep-command "rg -nS --no-heading ")
+    (grep-find-ignored-directories
+     '("SCCS" "RCS" "CVS" "MCVS" ".src" ".svn" ".git" ".hg" ".bzr" "_MTN" "_darcs" "{arch}" "node_modules" "build" "dist"))
+    
+    (frame-title-format
+     (list (format "%s %%S: %%j " (system-name))
+           '(buffer-file-name "%f" (dired-directory dired-directory "%b"))))
+    :config
+    ;; Makes everything accept utf-8 as default, so buffers with tsx and so
+    ;; won't ask for encoding (because undecided-unix) every single keystroke
+    (modify-coding-system-alist 'file "" 'utf-8)
+    
+    (set-face-attribute 'default nil :family "Maple Mono NF CN" :height 105)
+
+    (when (eq system-type 'darwin)
+      (setq insert-directory-program "gls")
+      (setq mac-command-modifier 'meta)
+      (set-face-attribute 'default nil :family "Maple Mono NF CN" :height 140))
+
+    :init
+    (with-current-buffer (get-buffer-create "*scratch*")
+      (insert (format ";;
+  ;; ███████╗███╗   ███╗ █████╗  ██████╗███████╗
+  ;; ██╔════╝████╗ ████║██╔══██╗██╔════╝██╔════╝
+  ;; █████╗  ██╔████╔██║███████║██║     ███████╗
+  ;; ██╔══╝  ██║╚██╔╝██║██╔══██║██║     ╚════██║
+  ;; ███████╗██║ ╚═╝ ██║██║  ██║╚██████╗███████║
+  ;; ╚══════╝╚═╝     ╚═╝╚═╝  ╚═╝ ╚═════╝╚══════╝
+  ;;
+  ;;   Loading time : %s
+  ;;   Packages     : %s
+  ;;
+  "
+                      (emacs-init-time)
+                      (number-to-string (length package-activated-list)))))
+    (message (emacs-init-time)))
+
+#+end_src
+
+* Customizations
+
+To avoid overloading the GNU Emacs customization =init.el= file made
+with the UI, I add the generated code in a separate file.
+
+#+begin_src emacs-lisp
+  ;; custom-file is a variable defined in ‘cus-edit.el’.
+  (setq custom-file (locate-user-emacs-file "custom.el"))
+#+end_src
+
+* which-key
+
+Display available keybindings in popup
+
+#+begin_src emacs-lisp
+  (use-package which-key
+    :defer t
+    :ensure nil
+    :hook
+    (after-init-hook . which-key-mode)
+    :config
+    (setq which-key-separator " ")
+    (setq which-key-prefix-prefix "… ")
+    (setq which-key-max-display-columns 3)
+    (setq which-key-idle-delay 1)
+    (setq which-key-idle-secondary-delay 0.25)
+    (setq which-key-add-column-padding 1)
+    (setq which-key-max-description-length 40)
+
+    ;; Inspired by: https://gist.github.com/mmarshall540/a12f95ab25b1941244c759b1da24296d
+    ;;
+    ;; By default, Which-key doesn't give much help for prefix-keys. It
+    ;; either shows the generic description, "+prefix", or the name of a
+    ;; prefix-command, which usually isn't as descriptive as we'd like.
+    ;;
+    ;; Here are some descriptions for the default bindings in `global-map'
+    ;; and `org-mode-map'.
+    (which-key-add-key-based-replacements
+     "<f1> 4" "help-other-win"
+     "<f1>" "help"
+     "<f2>" "2column"
+     "C-c" "mode-and-user"
+     "C-c !" "flymake"
+     "C-c g" "git-gutter"
+     "C-h 4" "help-other-win"
+     "C-h" "help"
+     "C-x 4" "other-window"
+     "C-x 5" "other-frame"
+     "C-x 6" "2-column"
+     "C-x 8" "insert-special"
+     "C-x 8 ^" "superscript (⁰, ¹, ², …)"
+     "C-x 8 _" "subscript (₀, ₁, ₂, …)"
+     "C-x 8 a" "arrows & æ (←, →, ↔, æ)"
+     "C-x 8 e" "emojis (🫎, 🇧🇷, 🇮🇹, …)"
+     "C-x 8 *" "common symbols ( , ¡, €, …)"
+     "C-x 8 =" "macron (Ā, Ē, Ḡ, …)"
+     "C-x 8 N" "macron (№)"
+     "C-x 8 O" "macron (œ)"
+     "C-x 8 ~" "tilde (~, ã, …)"
+     "C-x 8 /" "stroke (÷, ≠, ø, …)"
+     "C-x 8 ." "dot (·, ż)"
+     "C-x 8 ," "cedilla (¸, ç, ą, …)"
+     "C-x 8 '" "acute (á, é, í, …)"
+     "C-x 8 `" "grave (à, è, ì, …)"
+     "C-x 8 \"" "quotation/dieresis (\", ë, ß, …)"
+     "C-x 8 1" "†, 1/…"
+     "C-x 8 2" "‡"
+     "C-x 8 3" "3/…"
+     "C-x C-k C-q" "kmacro-counters"
+     "C-x C-k C-r a" "kmacro-add"
+     "C-x C-k C-r" "kmacro-register"
+     "C-x C-k" "keyboard-macros"
+     "C-x RET" "encoding/input"
+     "C-x a i" "abbrevs-inverse-add"
+     "C-x a" "abbrevs"
+     "C-x n" "narrowing"
+     "C-x p" "projects"
+     "C-x r" "reg/rect/bkmks"
+     "C-x t ^" "tab-bar-detach"
+     "C-x t" "tab-bar"
+     "C-x v M" "vc-mergebase"
+     "C-x v b" "vc-branch"
+     "C-x v" "version-control"
+     "C-x w ^" "window-detach"
+     "C-x w" "window-extras"
+     "C-x x" "buffer-extras"
+     "C-x" "extra-commands"
+     "M-g" "goto-map"
+     "M-s h" "search-highlight"
+     "M-s" "search-map")
+
+    ;; Upon loading, the built-in `page-ext' package turns "C-x C-p" into
+    ;; a prefix-key. If you know of other built-in packages that have
+    ;; this behavior, please let me know, so I can add them.
+    (with-eval-after-load 'page-ext
+      (which-key-add-key-based-replacements
+       "C-x C-p" "page-extras"))
+
+    ;; Org-mode provides some additional prefix-keys in `org-mode-map'.
+    (with-eval-after-load 'org
+      (which-key-add-keymap-based-replacements org-mode-map
+        "C-c \"" "org-plot"
+        "C-c C-v" "org-babel"
+        "C-c C-x" "org-extra-commands")))
+
+
+#+end_src
+
+* dired
+
+#+begin_src emacs-lisp
+  (use-package dired
+    :ensure nil
+    :bind
+    (:map dired-mode-map
+          ("-" . dired-up-directory))
+    :custom
+    (dired-dwim-target t)
+    (dired-guess-shell-alist-user
+     '(("\\.\\(png\\|jpe?g\\|tiff\\)" "feh" "xdg-open" "open")
+       ("\\.\\(mp[34]\\|m4a\\|ogg\\|flac\\|webm\\|mkv\\)" "mpv" "xdg-open" "open")
+       (".*" "xdg-open" "open")))
+    (dired-kill-when-opening-new-dired-buffer t)
+    (dired-listing-switches "-alh --group-directories-first")
+    (dired-omit-files "^\\.")                                ; with dired-omit-mode (C-x M-o)
+    (dired-hide-details-hide-absolute-location t)            ; EMACS-31
+    :init
+    (add-hook 'dired-mode-hook (lambda () (dired-omit-mode 1)))) ;; Turning this ON also sets the C-x M-o binding.
+
+  ;;; EMACS-SOLO-DIRED-GUTTER
+  (use-package emacs-solo-dired-gutter
+    :ensure nil
+    :no-require t
+    :defer t
+    :init
+    (setq emacs-solo-dired-gutter-enabled t)
+
+    (defvar emacs-solo/dired-git-status-overlays nil
+      "List of active overlays in Dired for Git status.")
+
+    (defun emacs-solo/dired--git-status-face (code)
+      "Return a cons cell (STATUS . FACE) for a given Git porcelain CODE."
+      (let* ((git-status-untracked "??")
+             (git-status-modified " M")
+             (git-status-modified-alt "M ")
+             (git-status-deleted "D ")
+             (git-status-added "A ")
+             (git-status-renamed "R ")
+             (git-status-copied "C ")
+             (git-status-ignored "!!")
+             (status (cond
+                      ((string-match-p "\\?\\?" code) git-status-untracked)
+                      ((string-match-p "^ M" code) git-status-modified)
+                      ((string-match-p "^M " code) git-status-modified-alt)
+                      ((string-match-p "^D" code) git-status-deleted)
+                      ((string-match-p "^A" code) git-status-added)
+                      ((string-match-p "^R" code) git-status-renamed)
+                      ((string-match-p "^C" code) git-status-copied)
+                      ((string-match-p "\\!\\!" code) git-status-ignored)
+                      (t "  ")))
+             (face (cond
+                    ((string= status git-status-ignored) 'shadow)
+                    ((string= status git-status-untracked) 'warning)
+                    ((string= status git-status-modified) 'font-lock-function-name-face)
+                    ((string= status git-status-modified-alt) 'font-lock-function-name-face)
+                    ((string= status git-status-deleted) 'error)
+                    ((string= status git-status-added) 'success)
+                    (t 'font-lock-keyword-face))))
+        (cons status face)))
+
+    (defun emacs-solo/dired-git-status-overlay ()
+      "Overlay Git status indicators on the first column in Dired."
+      (interactive)
+      (require 'vc-git)
+      (let ((git-root (ignore-errors (vc-git-root default-directory))))
+        (when (and git-root
+                   (not (file-remote-p default-directory))
+                   emacs-solo-dired-gutter-enabled)
+          (setq git-root (expand-file-name git-root))
+          (let* ((git-status (vc-git--run-command-string nil "status" "--porcelain" "--ignored" "--untracked-files=normal"))
+                 (status-map (make-hash-table :test 'equal)))
+            (mapc #'delete-overlay emacs-solo/dired-git-status-overlays)
+            (setq emacs-solo/dired-git-status-overlays nil)
+
+            (dolist (line (split-string git-status "\n" t))
+              (when (string-match "^\\(..\\) \\(.+\\)$" line)
+                (let* ((code (match-string 1 line))
+                       (file (match-string 2 line))
+                       (fullpath (expand-file-name file git-root))
+                       (status-face (emacs-solo/dired--git-status-face code)))
+                  (puthash fullpath status-face status-map))))
+
+            (save-excursion
+              (goto-char (point-min))
+              (while (not (eobp))
+                (let* ((file (ignore-errors (expand-file-name (dired-get-filename nil t)))))
+                  (when file
+                    (setq file (if (file-directory-p file) (concat file "/") file))
+                    (let* ((status-face (gethash file status-map (cons "  " 'font-lock-keyword-face)))
+                           (status (car status-face))
+                           (face (cdr status-face))
+                           (status-str (propertize (format " %s " status) 'face face))
+                           (ov (make-overlay (line-beginning-position) (1+ (line-beginning-position)))))
+                      (overlay-put ov 'before-string status-str)
+                      (push ov emacs-solo/dired-git-status-overlays))))
+                (forward-line 1)))))))
+
+    (add-hook 'dired-after-readin-hook #'emacs-solo/dired-git-status-overlay))
+
+
+      ;;; EMACS-SOLO-DIRED-ICONS
+  (use-package emacs-solo-dired-icons
+    :ensure nil
+    :no-require t
+    :defer t
+    :init
+    (defvar emacs-solo/dired-icons-file-icons
+      '(("el" . "📜")      ("rb" . "💎")      ("js" . "⚙️")      ("ts" . "⚙️")
+        ("json" . "🗂️")    ("md" . "📝")      ("txt" . "📝")     ("html" . "🌐")
+        ("css" . "🎨")     ("scss" . "🎨")    ("png" . "🖼️")    ("jpg" . "🖼️")
+        ("jpeg" . "🖼️")   ("gif" . "🖼️")    ("svg" . "🖼️")    ("pdf" . "📄")
+        ("zip" . "📦")     ("tar" . "📦")     ("gz" . "📦")      ("bz2" . "📦")
+        ("7z" . "📦")      ("org" . "📝")    ("sh" . "💻")      ("c" . "🔧")
+        ("h" . "📘")       ("cpp" . "➕")     ("hpp" . "📘")     ("py" . "🐍")
+        ("java" . "☕")    ("go" . "🌍")      ("rs" . "💨")      ("php" . "🐘")
+        ("pl" . "🐍")      ("lua" . "🎮")     ("ps1" . "🔧")     ("exe" . "⚡")
+        ("dll" . "🔌")     ("bat" . "⚡")      ("yaml" . "⚙️")    ("toml" . "⚙️")
+        ("ini" . "⚙️")     ("csv" . "📊")     ("xls" . "📊")     ("xlsx" . "📊")
+        ("sql" . "🗄️")    ("log" . "📝")     ("apk" . "📱")     ("dmg" . "💻")
+        ("iso" . "💿")     ("torrent" . "⏳") ("bak" . "🗃️")    ("tmp" . "⚠️")
+        ("desktop" . "🖥️") ("md5" . "🔐")     ("sha256" . "🔐")  ("pem" . "🔐")
+        ("sqlite" . "🗄️")  ("db" . "🗄️")
+        ("mp3" . "🎶")     ("wav" . "🎶")     ("flac" . "🎶")
+        ("ogg" . "🎶")     ("m4a" . "🎶")     ("mp4" . "🎬")     ("avi" . "🎬")
+        ("mov" . "🎬")     ("mkv" . "🎬")     ("webm" . "🎬")    ("flv" . "🎬")
+        ("ico" . "🖼️")     ("ttf" . "🔠")     ("otf" . "🔠")     ("eot" . "🔠")
+        ("woff" . "🔠")    ("woff2" . "🔠")   ("epub" . "📚")    ("mobi" . "📚")
+        ("azw3" . "📚")    ("fb2" . "📚")     ("chm" . "📚")     ("tex" . "📚")
+        ("bib" . "📚")     ("apk" . "📱")     ("rar" . "📦")     ("xz" . "📦")
+        ("zst" . "📦")     ("tar.xz" . "📦")  ("tar.zst" . "📦") ("tar.gz" . "📦")
+        ("tgz" . "📦")     ("bz2" . "📦")     ("mpg" . "🎬")     ("webp" . "🖼️")
+        ("flv" . "🎬")     ("3gp" . "🎬")     ("ogv" . "🎬")     ("srt" . "🔠")
+        ("vtt" . "🔠")     ("cue" . "📀"))
+      "Icons for specific file extensions in Dired.")
+
+    (defun emacs-solo/dired-icons-icon-for-file (file)
+      (if (file-directory-p file)
+          "📁"
+        (let* ((ext (file-name-extension file))
+               (icon (and ext (assoc-default (downcase ext) emacs-solo/dired-icons-file-icons))))
+          (or icon "📄"))))
+
+    (defun emacs-solo/dired-icons-icons-regexp ()
+      "Return a regexp that matches any icon we use."
+      (let ((icons (mapcar #'cdr emacs-solo/dired-icons-file-icons)))
+        (concat "^\\(" (regexp-opt (cons "📁" icons)) "\\) ")))
+
+    (defun emacs-solo/dired-icons-add-icons ()
+      "Add icons to filenames in Dired buffer."
+      (when (derived-mode-p 'dired-mode)
+        (let ((inhibit-read-only t)
+              (icon-regex (emacs-solo/dired-icons-icons-regexp)))
+          (save-excursion
+            (goto-char (point-min))
+            (while (not (eobp))
+              (condition-case nil
+                  (when-let* ((file (dired-get-filename nil t)))
+                    (dired-move-to-filename)
+                    (unless (looking-at-p icon-regex)
+                      (insert (concat (emacs-solo/dired-icons-icon-for-file file) " "))))
+                (error nil))  ;; gracefully skip invalid lines
+              (forward-line 1))))))
+
+    (add-hook 'dired-after-readin-hook #'emacs-solo/dired-icons-add-icons))
+
+
+#+end_src
+
+* isearch
+#+begin_src emacs-lisp
+  (use-package isearch
+    :ensure nil
+    :config
+    (setq isearch-lazy-count t)
+    (setq lazy-count-prefix-format "(%s/%s) ")
+    (setq lazy-count-suffix-format nil)
+    (setq search-whitespace-regexp ".*?"))
+
+#+end_src
+
+* bookmark+
+
+#+begin_src emacs-lisp
+  (use-package bookmark+
+    :ensure nil
+    :demand t
+    :load-path "site-lisp/bookmarkplus")
+#+end_src
+
+* icicles
+
+#+begin_src emacs-lisp
+  (use-package icicles
+     :ensure nil
+     :demand t
+     :after bookmark+
+     :load-path "site-lisp/icicles"
+     :config (icy-mode))
+#+end_src
+
+* Load customize file
+
+KEEP THIS AT LAST!!!
+
+#+begin_src emacs-lisp
+  (when (file-exists-p custom-file)
+    (load custom-file))
+#+end_src
