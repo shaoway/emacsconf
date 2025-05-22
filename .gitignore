@@ -1,4 +1,5 @@
 eln-cache/*
 *~
 config.el
+custom.el
 recentf
